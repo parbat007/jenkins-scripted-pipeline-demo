@@ -2,8 +2,7 @@
 
 /**
  * Jenkins Scripted Pipeline for Java Application
- * 
- * This pipeline demonstrates:
+ * * This pipeline demonstrates:
  * - Multi-stage build process
  * - Automated testing
  * - Artifact archiving
@@ -28,6 +27,7 @@ node {
         echo "Workspace: ${env.WORKSPACE}"
         
         // Set tool locations
+        // NOTE: 'java-17' and 'maven-3' must be configured in Jenkins Global Tool Configuration
         javaHome = tool name: 'java-17', type: 'jdk'
         mavenHome = tool name: 'maven-3', type: 'maven'
         
@@ -71,7 +71,8 @@ node {
         }
         
         if (!fileExists('src/main/java')) {
-            error('Source directory not found! Please check project structure.')
+            // THIS CHECK REQUIRES STANDARD MAVEN LAYOUT
+            error('Source directory not found! Please check project structure.') 
         }
         
         echo "Project structure validation passed"
@@ -124,7 +125,7 @@ node {
         // Simple code quality checks
         echo "Running basic code quality checks..."
         
-        // Count Java files
+        // Count Java files and total lines of code
         sh '''
             echo "=== Project Statistics ==="
             find src -name "*.java" | wc -l | xargs echo "Java files:"
@@ -142,7 +143,7 @@ node {
         echo "=== Package Stage ==="
         
         try {
-            // Create JAR package
+            // Create JAR package, skipping tests since they just ran
             sh 'mvn package -DskipTests'
             
             echo "Packaging completed successfully"
@@ -163,8 +164,8 @@ node {
         // Archive the built JAR file
         if (fileExists('target/*.jar')) {
             archiveArtifacts artifacts: 'target/*.jar', 
-                           fingerprint: true,
-                           allowEmptyArchive: false
+                            fingerprint: true,
+                            allowEmptyArchive: false
             echo "Artifacts archived successfully"
         } else {
             echo "Warning: No JAR files found to archive"
@@ -173,7 +174,7 @@ node {
         // Archive test reports
         if (fileExists('target/surefire-reports/')) {
             archiveArtifacts artifacts: 'target/surefire-reports/*', 
-                           allowEmptyArchive: true
+                            allowEmptyArchive: true
             echo "Test reports archived"
         }
     }
@@ -184,7 +185,7 @@ node {
         // Simulate deployment process
         echo "Simulating deployment to development environment..."
         
-        // Run the application to verify it works
+        // Run the application to verify it works (Assumes the JAR is executable)
         sh '''
             echo "Testing application execution..."
             java -jar target/*.jar || echo "Application executed"
@@ -202,7 +203,7 @@ node {
         echo "Build Duration: ${currentBuild.durationString}"
         echo "Build URL: ${env.BUILD_URL}"
         
-        // In a real environment, you might send emails, Slack notifications, etc.
+        // Final message
         if (currentBuild.result == 'SUCCESS' || currentBuild.result == null) {
             echo "✅ Pipeline completed successfully!"
         } else {
@@ -210,9 +211,3 @@ node {
         }
     }
 }
-
-/**
- * Post-build actions (executed regardless of pipeline success/failure)
- */
-// Note: In scripted pipelines, post-build actions are handled differently
-// than in declarative pipelines. We use try-catch blocks within stages.
